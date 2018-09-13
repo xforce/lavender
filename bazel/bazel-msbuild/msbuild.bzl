@@ -11,8 +11,9 @@ def _get_project_info(target, ctx):
   else:
     cc_info = None
   return struct(
-      workspace_root = ctx.label.workspace_root,
-      package        = ctx.label.package,
+      build_file_path = ctx.build_file_path,
+      workspace_root  = ctx.label.workspace_root,
+      package         = ctx.label.package,
 
       files = struct(**{name: _get_file_group(ctx.rule.attr, name) for name in ['srcs', 'hdrs']}),
       deps  = [str(dep.label) for dep in getattr(ctx.rule.attr, 'deps', [])],

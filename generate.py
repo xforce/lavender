@@ -56,6 +56,7 @@ class Struct:
 class ProjectInfo:
     def __init__(self, label, info_dict):
         self.label = label
+        self.build_file_path = os.path.join(info_dict['workspace_root'], info_dict['build_file_path'])
         #self.ws_path = info_dict['workspace_root']
         self.rule = Struct()
         self.rule.kind = info_dict['kind']
@@ -276,6 +277,15 @@ def _msb_file_filter(info, filename, filters):
     _add_filter_to_set(filters, filter_name)
     return '<Filter>{}</Filter>'.format(filter_name)
 
+def _msb_file(rel_ws_root, info, filters, filename):
+    filter = _msb_file_filter(info, filename, filters)
+    if filter is None:
+        return None 
+    print (os.path.join(rel_ws_root, filename))
+    return '<ClInclude Include="{name}">{filter}</ClInclude>'.format(
+        name=os.path.join(rel_ws_root, filename),
+        filter=filter)
+
 def _msb_cc_src(rel_ws_root, info, filters, filename):
     filter = _msb_file_filter(info, filename, filters)
     if filter is None:
@@ -308,7 +318,8 @@ def _msb_files(cfg, info, filters=None):
     rel_ws_root = cfg.cc_workspace_path  #os.path.relpath(cfg.workspace_root, output_dir)
     return (
         _msb_item_group(rel_ws_root, info, filters, info.rule.srcs, _msb_cc_src) +
-        _msb_item_group(rel_ws_root, info, filters, info.rule.hdrs, _msb_cc_inc))
+        _msb_item_group(rel_ws_root, info, filters, info.rule.hdrs, _msb_cc_inc) +
+        _msb_item_group(rel_ws_root, info, filters, [info.build_file_path], _msb_file))
 
 def _sln_project(project):
     # This first UUID appears to be an identifier for Visual C++ packages?
