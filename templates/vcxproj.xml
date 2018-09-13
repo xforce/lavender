@@ -7,7 +7,7 @@
 {config_properties}
 
   <PropertyGroup Label="Globals">
-    <ProjectName>{target.label.absolute}</ProjectName>
+    <ProjectName>{target.label.absolute_clean}</ProjectName>
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{target.guid}</ProjectGuid>
     <Keyword>MakeFileProj</Keyword>
@@ -15,13 +15,14 @@
     {nmake_output}
     <OutDir>{rel_paths.out}\$(BazelCfgDirname)\bin\{target.label.package_path}\</OutDir>
     {target_name_ext}
+    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
 
   <PropertyGroup Label="Configuration">
     <ConfigurationType>Makefile</ConfigurationType>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Fastbuild'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -36,7 +37,7 @@
 
   <!-- Hack to get most includes working -->
   <PropertyGroup>
-    <IncludePath>{rel_paths.workspace_root};$(IncludePath)</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);{rel_paths.workspace_root};$(IncludePath)</IncludePath>
   </PropertyGroup>
 
   <ImportGroup Label="ExtensionSettings">
@@ -62,7 +63,7 @@
   <PropertyGroup>
     <NMakePreprocessorDefinitions>{target.defines_joined};$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>{include_dirs_joined};$(AdditionalIncludeDirectories)</NMakeIncludeSearchPath>
-    <AdditionalOptions>{target.compile_flags_joined} %(AdditionalOptions)</AdditionalOptions>
+    <AdditionalOptions>/FC {target.compile_flags_joined} %(AdditionalOptions)</AdditionalOptions>
   </PropertyGroup>
 
   {file_groups}
