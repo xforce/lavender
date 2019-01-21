@@ -35,7 +35,10 @@ class Label:
 
     @property
     def absolute_clean(self):
-        return (self.repo or '') + self.package + '_' + self.name
+        project_name = (self.repo or '') + self.package
+        if self.package.split('/')[-1] != self.name:
+            project_name = project_name + '_' + self.name
+        return project_name
 
     @property
     def package_path(self):
