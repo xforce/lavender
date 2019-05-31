@@ -1,12 +1,12 @@
 def _get_project_info(target, ctx):
-  cc = getattr(target, 'cc', None)
+  cc = target[CcInfo]
   if cc:
     cc_info = struct(
-      include_dirs        = cc.include_directories,
-      system_include_dirs = cc.system_include_directories,
-      quote_include_dirs  = cc.quote_include_directories,
-      compile_flags       = cc.compile_flags + ctx.fragments.cpp.compiler_options([]) + ctx.fragments.cpp.cxx_options([]),
-      defines             = cc.defines,
+      include_dirs        = cc.compilation_context.includes.to_list(),
+      system_include_dirs = cc.compilation_context.system_includes.to_list(),
+      quote_include_dirs  = cc.compilation_context.quote_includes.to_list(),
+      compile_flags       = ctx.fragments.cpp.copts + ctx.fragments.cpp.cxxopts,
+      defines             = cc.compilation_context.defines.to_list(),
     )
   else:
     cc_info = None

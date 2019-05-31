@@ -8,7 +8,7 @@
 
   <PropertyGroup Label="Globals">
     <ProjectName>{target.label.absolute_clean}</ProjectName>
-    <VCProjectVersion>15.0</VCProjectVersion>
+    <VCProjectVersion>16.0</VCProjectVersion>
     <ProjectGuid>{target.guid}</ProjectGuid>
     <Keyword>MakeFileProj</Keyword>
     <UseHostCompilerIfAvailable>false</UseHostCompilerIfAvailable>
@@ -21,7 +21,7 @@
 
   <PropertyGroup Label="Configuration">
     <ConfigurationType>Makefile</ConfigurationType>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)'=='Fastbuild'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -36,7 +36,7 @@
 
   <!-- Hack to get most includes working -->
   <PropertyGroup>
-    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);{rel_paths.workspace_root};$(IncludePath)</IncludePath>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);{include_dirs_joined};$(IncludePath)</IncludePath>
   </PropertyGroup>
 
   <ImportGroup Label="ExtensionSettings">

@@ -15,8 +15,10 @@ BAZEL = 'bazel'
 
 PROJECT_TYPE_GUID = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}'
 
+
 class Label:
-    PATTERN = re.compile(r'((@[a-zA-Z0-9/._-]+)?//)?([a-zA-Z0-9/._-]*)(:([a-zA-Z0-9_/.+=,@~-]+))?$')
+    PATTERN = re.compile(
+        r'((@[a-zA-Z0-9/._-]+)?//)?([a-zA-Z0-9/._-]*)(:([a-zA-Z0-9_/.+=,@~-]+))?$')
 
     def __init__(self, name):
         match = re.match(Label.PATTERN, name)
@@ -53,13 +55,16 @@ class Label:
         # TODO: absolute
         return os.path.join(self.package, self.name+'.msbuild')
 
+
 class Struct:
     pass
+
 
 class ProjectInfo:
     def __init__(self, label, info_dict):
         self.label = label
-        self.build_file_path = os.path.join(info_dict['workspace_root'], info_dict['build_file_path'])
+        self.build_file_path = os.path.join(
+            info_dict['workspace_root'], info_dict['build_file_path'])
         #self.ws_path = info_dict['workspace_root']
         self.rule = Struct()
         self.rule.kind = info_dict['kind']
@@ -90,22 +95,25 @@ class ProjectInfo:
         cc = self._cc
         if not cc:
             return ''
-        paths = cc['include_dirs'] + cc['system_include_dirs'] + cc['quote_include_dirs']
-        paths = (self._rewrite_include_path(cfg, rel_paths, path) for path in paths)
+        paths = cc['include_dirs'] + \
+            cc['system_include_dirs'] + cc['quote_include_dirs']
+        paths = (self._rewrite_include_path(cfg, rel_paths, path)
+                 for path in paths)
         return ';'.join(paths)
 
     def _rewrite_include_path(self, cfg, rel_paths, path):
-        path = path.replace('/', '\\').split('\\')  # MSYS2 confuses Python
-        path = [node if node != cfg.default_cfg_dirname else '%(BazelCfgDirname)' for node in path]
-        return os.path.normpath(os.path.join(rel_paths.workspace_root, *path))
+        path = path.replace('/', '\\')
+        return os.path.normpath(os.path.join(cfg.cc_workspace_path, path))
+
 
 BuildConfig = namedtuple('BuildConfig', ['msbuild_name', 'bazel_name'])
 PlatformConfig = namedtuple('PlatformConfig', ['msbuild_name', 'bazel_name'])
 
+
 class Configuration:
     def __init__(self, args):
         self.workspace_root = os.path.abspath('.')  # TODO
-        self.output_path    = os.path.abspath(args.output)
+        self.output_path = os.path.abspath(args.output)
 
         self.paths = Struct()
         self.paths.workspace_root = self.workspace_root
@@ -151,9 +159,11 @@ class Configuration:
         self.targets = targets.keys()
 
     _LABEL_KIND_PATTERN = re.compile(r'(\w+) rule (.+)$')
+
     def _get_targets_from_query(self, query, kinds):
         labels = []
-        target_list = subprocess.check_output([BAZEL, 'query', query, '--output=label_kind'])
+        target_list = subprocess.check_output(
+            [BAZEL, 'query', query, '--output=label_kind'])
         for line in target_list.split(b'\n'):
             line = line.decode('utf-8').strip()
             if not line:
@@ -170,7 +180,7 @@ class Configuration:
     def _get_bazel_info(self):
         info = subprocess.check_output([BAZEL, 'info'])
         keyvals = (line.strip().split(': ', 1) for line in info.split(b'\n'))
-        return {kv[0]:kv[1] for kv in keyvals if len(kv) == 2}
+        return {kv[0]: kv[1] for kv in keyvals if len(kv) == 2}
 
     @property
     def bin_path(self):
@@ -197,6 +207,7 @@ class Configuration:
 
     class RelativePathHelper:
         """Provides a set of paths relative to some starting path."""
+
         def __init__(self, orig_paths, relative_to):
             self.orig_paths = orig_paths
             self.relative_to = relative_to
@@ -215,19 +226,23 @@ class Configuration:
             return subprocess.check_output([self._cygpath, '-w', path]).strip()
         return os.path.normpath(path)
 
+
 def run_aspect(cfg):
     """Invokes bazel on our aspect to generate target info."""
     subprocess.check_call([
         BAZEL,
         'build',
-        '--override_repository=bazel-msbuild={}'.format(os.path.join(SCRIPT_DIR, 'bazel')),
+        '--override_repository=bazel-msbuild={}'.format(
+            os.path.join(SCRIPT_DIR, 'bazel')),
         '--aspects=@bazel-msbuild//bazel-msbuild:msbuild.bzl%msbuild_aspect',
         '--output_groups=msbuild_outputs'] + list(cfg.targets))
+
 
 def read_info(cfg, target):
     """Reads the generated msbuild info file for the given target."""
     info_dict = json.load(open(os.path.join(cfg.bin_path, target.info_path)))
     return ProjectInfo(target, info_dict)
+
 
 def _msb_nmake_output(target, rel_paths):
     if not target.output_file:
@@ -235,8 +250,9 @@ def _msb_nmake_output(target, rel_paths):
     return ((
             r'<NMakeOutput>{rel_paths.out}\$(BazelCfgDirname)\bin\{target.label.package_path}' +
             r'\{target.output_file.basename}</NMakeOutput>'
-        ).format(target=target, rel_paths=rel_paths)
-    )
+            ).format(target=target, rel_paths=rel_paths)
+            )
+
 
 def _msb_target_name_ext(target):
     if not target.output_file:
@@ -246,6 +262,7 @@ def _msb_target_name_ext(target):
     else:
         name, ext = target.output_file.basename, ''
     return r'<TargetName>{}</TargetName><TargetExt>{}</TargetExt>'.format(name, ext)
+
 
 def _add_filter_to_set(filters, filter_name):
     """Adds a filter, and all its parent filters to the set `filters`."""
@@ -258,6 +275,7 @@ def _add_filter_to_set(filters, filter_name):
     for component in components[1:]:
         path += DELIM + component
         filters.add(path)
+
 
 def _msb_file_filter(info, filename, filters):
     # In most cases, files in a package are in the same directory as that package.
@@ -274,20 +292,22 @@ def _msb_file_filter(info, filename, filters):
     dirname = os.path.dirname(filename)
     if not dirname:
         return None
-    filter_name = os.path.relpath(dirname, info.label.package_path).replace('/', '\\')
+    filter_name = os.path.relpath(
+        dirname, info.label.package_path).replace('/', '\\')
     if not filter_name or filter_name == '.':
         return None
     _add_filter_to_set(filters, filter_name)
     return '<Filter>{}</Filter>'.format(filter_name)
 
+
 def _msb_file(rel_ws_root, info, filters, filename):
     filter = _msb_file_filter(info, filename, filters)
     if filter is None:
-        return None 
-    print (os.path.join(rel_ws_root, filename))
+        return None
     return '<ClInclude Include="{name}">{filter}</ClInclude>'.format(
         name=os.path.join(rel_ws_root, filename),
         filter=filter)
+
 
 def _msb_cc_src(rel_ws_root, info, filters, filename):
     filter = _msb_file_filter(info, filename, filters)
@@ -297,6 +317,7 @@ def _msb_cc_src(rel_ws_root, info, filters, filename):
         name=os.path.join(rel_ws_root, filename),
         filter=filter)
 
+
 def _msb_cc_inc(rel_ws_root, info, filters, filename):
     filter = _msb_file_filter(info, filename, filters)
     if filter is None:
@@ -304,6 +325,7 @@ def _msb_cc_inc(rel_ws_root, info, filters, filename):
     return '<ClInclude Include="{name}">{filter}</ClInclude>'.format(
         name=os.path.join(rel_ws_root, filename),
         filter=filter)
+
 
 def _msb_item_group(rel_ws_root, info, filters, file_targets, func):
     if not file_targets:
@@ -315,24 +337,31 @@ def _msb_item_group(rel_ws_root, info, filters, file_targets, func):
         '\n  </ItemGroup>'
     )
 
+
 def _msb_files(cfg, info, filters=None):
     """Set filters to a set-like when writing filters. All filters used will be added to the set."""
-    output_dir = cfg.output_path_for_package(info.label.package)
-    rel_ws_root = cfg.cc_workspace_path  #os.path.relpath(cfg.workspace_root, output_dir)
+    rel_ws_root = cfg.cc_workspace_path
     return (
         _msb_item_group(rel_ws_root, info, filters, info.rule.srcs, _msb_cc_src) +
         _msb_item_group(rel_ws_root, info, filters, info.rule.hdrs, _msb_cc_inc) +
         _msb_item_group(rel_ws_root, info, filters, [info.build_file_path], _msb_file))
 
+
 def _sln_project(project):
     # This first UUID appears to be an identifier for Visual C++ packages?
+    if len(project.label.package) > 0:
+        package_prefix = '{package}\\'.format(package=project.label.package)
+    else:
+        package_prefix = ''
     return (
-        'Project("{type_guid}") = "{name}", "{package}\\{name}.vcxproj", "{guid}"\nEndProject'
+        'Project("{type_guid}") = "{name}", "{package_prefix}{name}.vcxproj", "{guid}"\nEndProject'
         .format(guid=project.guid, type_guid=PROJECT_TYPE_GUID,
-                name=project.label.name, package=project.label.package))
+                name=project.label.name, package_prefix=package_prefix))
+
 
 def _sln_projects(projects):
     return '\n'.join([_sln_project(project) for project in projects])
+
 
 def _sln_cfgs(cfg):
     lines = []
@@ -342,6 +371,7 @@ def _sln_cfgs(cfg):
                 '{cfg}|{platform} = {cfg}|{platform}'
                 .format(cfg=build_config.msbuild_name, platform=platform.msbuild_name))
     return '\n\t\t'.join(lines)
+
 
 def _sln_project_cfgs(cfg, projects):
     lines = []
@@ -354,10 +384,13 @@ def _sln_project_cfgs(cfg, projects):
                     'platform': platform.msbuild_name
                 }
                 lines.extend([
-                    '{guid}.{cfg}|{platform}.ActiveCfg = {cfg}|{platform}'.format(**fmt),
-                    '{guid}.{cfg}|{platform}.Build.0 = {cfg}|{platform}'.format(**fmt),
+                    '{guid}.{cfg}|{platform}.ActiveCfg = {cfg}|{platform}'.format(
+                        **fmt),
+                    '{guid}.{cfg}|{platform}.Build.0 = {cfg}|{platform}'.format(
+                        **fmt),
                 ])
     return '\n\t\t'.join(lines)
+
 
 def _msb_project_cfgs(cfg):
     configs = []
@@ -368,13 +401,15 @@ def _msb_project_cfgs(cfg):
       <Configuration>{cfg}</Configuration>
       <Platform>{platform}</Platform>
     </ProjectConfiguration>'''
-                .format(cfg=build_config.msbuild_name, platform=platform.msbuild_name)
-            )
+                           .format(cfg=build_config.msbuild_name, platform=platform.msbuild_name)
+                           )
     return ''.join(configs)
+
 
 def _msb_cfg_properties(cfg):
     props = []
-    user_config = ''.join(' --config=' + name for name in cfg.user_config_names)
+    user_config = ''.join(
+        ' --config=' + name for name in cfg.user_config_names)
     for build_config in cfg.build_configs:
         for platform in cfg.platforms:
             props.append(r'''
@@ -382,8 +417,9 @@ def _msb_cfg_properties(cfg):
     <BazelCfgOpts>-c {cfg.bazel_name}{user_config}</BazelCfgOpts>
     <BazelCfgDirname>{platform.bazel_name}-{cfg.bazel_name}</BazelCfgDirname>
   </PropertyGroup>'''
-                .format(cfg=build_config, platform=platform, user_config=user_config))
+                         .format(cfg=build_config, platform=platform, user_config=user_config))
     return '\n'.join(props)
+
 
 def _msb_filter_items(filters):
     tags = [r'''
@@ -391,6 +427,7 @@ def _msb_filter_items(filters):
       <UniqueIdentifier>{uuid}</UniqueIdentifier>
     </Filter>'''.format(name=name, uuid=_generate_uuid_from_data(name)) for name in filters]
     return '\n'.join(tags)
+
 
 def _generate_uuid_from_data(data):
     # We don't comply with any UUID standard, but we use 3 to advertise that it is a deterministic
@@ -402,6 +439,7 @@ def _generate_uuid_from_data(data):
     part2 = hsh % (2**32)
     return '{{{:08X}-0000-3000-A000-0000{:08X}}}'.format(part1, part2)
 
+
 def _makedirs(path):
     """Ensures that the directories in path exist. Does nothing if they do."""
     try:
@@ -412,6 +450,7 @@ def _makedirs(path):
         else:
             raise
 
+
 def _generate_project_filters(filters_template, cfg, info):
     filters = set()
     file_groups = _msb_files(cfg, info, filters)
@@ -419,6 +458,7 @@ def _generate_project_filters(filters_template, cfg, info):
     return filters_template.format(
         file_groups=file_groups,
         filter_items=_msb_filter_items(filters))
+
 
 def generate_projects(cfg):
     with open(os.path.join(SCRIPT_DIR, 'templates', 'vcxproj.xml')) as f:
@@ -446,7 +486,8 @@ def generate_projects(cfg):
             rel_paths=rel_paths,
             nmake_output=_msb_nmake_output(info, rel_paths),
             include_dirs_joined=info.include_dirs_joined(cfg, rel_paths))
-        filters_content = _generate_project_filters(filters_template, cfg, info)
+        filters_content = _generate_project_filters(
+            filters_template, cfg, info)
 
         _makedirs(project_dir)
         with open(os.path.join(project_dir, info.label.name+'.vcxproj'), 'w') as out:
@@ -455,6 +496,7 @@ def generate_projects(cfg):
             out.write(filters_content)
 
     return project_infos
+
 
 def generate_solution(cfg, project_infos):
     with open(os.path.join(SCRIPT_DIR, 'templates', 'solution.sln')) as f:
@@ -467,6 +509,7 @@ def generate_solution(cfg, project_infos):
         guid=_generate_uuid_from_data(sln_filename))
     with open(sln_filename, 'w') as out:
         out.write(content)
+
 
 def main(argv):
     parser = argparse.ArgumentParser(
@@ -486,6 +529,7 @@ def main(argv):
     run_aspect(cfg)
     project_infos = generate_projects(cfg)
     generate_solution(cfg, project_infos)
+
 
 if __name__ == '__main__':
     main(sys.argv)
