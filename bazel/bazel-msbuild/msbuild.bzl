@@ -1,11 +1,32 @@
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "C_COMPILE_ACTION_NAME")
+
+CompilationAspect = provider()
+
 def _get_project_info(target, ctx):
   cc = target[CcInfo]
+  cc_toolchain = find_cpp_toolchain(ctx)
+  feature_configuration = cc_common.configure_features(
+    cc_toolchain = cc_toolchain,
+    requested_features = ctx.features,
+    unsupported_features = ctx.disabled_features,
+  )
+  compile_variables = cc_common.create_compile_variables(
+    feature_configuration = feature_configuration,
+    cc_toolchain = cc_toolchain,
+    user_compile_flags = ctx.fragments.cpp.copts,
+  )
+  compiler_options = cc_common.get_memory_inefficient_command_line(
+    feature_configuration = feature_configuration,
+    action_name = C_COMPILE_ACTION_NAME,
+    variables = compile_variables,
+  )
   if cc:
     cc_info = struct(
       include_dirs        = cc.compilation_context.includes.to_list(),
       system_include_dirs = cc.compilation_context.system_includes.to_list(),
       quote_include_dirs  = cc.compilation_context.quote_includes.to_list(),
-      compile_flags       = ctx.fragments.cpp.copts + ctx.fragments.cpp.cxxopts,
+      compile_flags       = compiler_options + (ctx.rule.attr.copts if "copts" in dir(ctx.rule.attr) else []) + ctx.fragments.cpp.cxxopts + ctx.fragments.cpp.copts,
       defines             = cc.compilation_context.defines.to_list(),
     )
   else:
@@ -40,6 +61,12 @@ def _msbuild_aspect_impl(target, ctx):
 
 msbuild_aspect = aspect(
     attr_aspects = ["deps"],
+     attrs = {
+        "_cc_toolchain": attr.label(
+            default = Label("@bazel_tools//tools/cpp:current_cc_toolchain"),
+        ),
+    },
     fragments    = ["cpp"],
+    required_aspect_providers = [CompilationAspect],
     implementation = _msbuild_aspect_impl,
 )
