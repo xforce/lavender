@@ -54,9 +54,9 @@ def _msbuild_aspect_impl(target, ctx):
   content = _get_project_info(target, ctx).to_json()
   ctx.actions.write(info_file, content, is_executable=False)
 
-  outputs = depset([info_file])
+  outputs = depset([info_file]).to_list()
   for dep in getattr(ctx.rule.attr, 'deps', []):
-    outputs += dep[OutputGroupInfo].msbuild_outputs
+    outputs += dep[OutputGroupInfo].msbuild_outputs.to_list()
   return [OutputGroupInfo(msbuild_outputs=outputs)]
 
 msbuild_aspect = aspect(
