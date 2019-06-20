@@ -7,6 +7,7 @@ def _get_project_info(target, ctx):
   cc = target[CcInfo]
   cc_toolchain = find_cpp_toolchain(ctx)
   feature_configuration = cc_common.configure_features(
+    ctx = ctx,
     cc_toolchain = cc_toolchain,
     requested_features = ctx.features,
     unsupported_features = ctx.disabled_features,
@@ -38,7 +39,7 @@ def _get_project_info(target, ctx):
 
       files = struct(**{name: _get_file_group(ctx.rule.attr, name) for name in ['srcs', 'hdrs']}),
       deps  = [str(dep.label) for dep in getattr(ctx.rule.attr, 'deps', [])],
-      target = struct(label=str(target.label), files=[f.path for f in target.files]),
+      target = struct(label=str(target.label), files=[f.path for f in target.files.to_list()]),
       kind = ctx.rule.kind,
 
       cc = cc_info,
@@ -47,7 +48,7 @@ def _get_project_info(target, ctx):
 def _get_file_group(rule_attrs, attr_name):
   file_targets = getattr(rule_attrs, attr_name, None)
   if not file_targets: return []
-  return [file.path for t in file_targets for file in t.files]
+  return [file.path for t in file_targets for file in t.files.to_list()]
 
 def _msbuild_aspect_impl(target, ctx):
   info_file = ctx.actions.declare_file(target.label.name + '.msbuild')
