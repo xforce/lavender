@@ -62,7 +62,7 @@
   <PropertyGroup>
     <NMakePreprocessorDefinitions>{target.defines_joined};$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>{include_dirs_joined};$(AdditionalIncludeDirectories)</NMakeIncludeSearchPath>
-    <AdditionalOptions>/FC {target.compile_flags_joined} %(AdditionalOptions)</AdditionalOptions>
+    <AdditionalOptions>{target.compile_flags_joined} %(AdditionalOptions)</AdditionalOptions>
   </PropertyGroup>
 
   {file_groups}

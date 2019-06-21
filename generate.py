@@ -340,7 +340,8 @@ def _msb_item_group(rel_ws_root, info, filters, file_targets, func):
 
 def _msb_files(cfg, info, filters=None):
     """Set filters to a set-like when writing filters. All filters used will be added to the set."""
-    rel_ws_root = cfg.cc_workspace_path
+    output_dir = cfg.output_path_for_package(info.label.package)
+    rel_ws_root = os.path.relpath(cfg.workspace_root, output_dir)
     return (
         _msb_item_group(rel_ws_root, info, filters, info.rule.srcs, _msb_cc_src) +
         _msb_item_group(rel_ws_root, info, filters, info.rule.hdrs, _msb_cc_inc) +
