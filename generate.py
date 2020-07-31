@@ -14,13 +14,15 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BAZEL = 'bazel'
 
 PROJECT_TYPE_GUID = '{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}'
+FOLDER_TYPE_GUID = '{2150E333-8FDC-42A3-9474-1A3956D46DE8}'
 
 
 class Label:
     PATTERN = re.compile(
         r'((@[a-zA-Z0-9/._-]+)?//)?([a-zA-Z0-9/._-]*)(:([a-zA-Z0-9_/.+=,@~-]+))?$')
 
-    def __init__(self, name):
+    def __init__(self, cfg, name):
+        self.cfg = cfg
         match = re.match(Label.PATTERN, name)
         if not match:
             raise ValueError("Invalid label: " + name)
@@ -37,6 +39,15 @@ class Label:
 
     @property
     def absolute_clean(self):
+        project_name = (self.repo or '') + self.package
+        if self.package.split('/')[-1] != self.name:
+            project_name = project_name + '/' + self.name
+        return project_name
+    
+    @property
+    def name_or_absolute(self):
+        if self.cfg.generate_filters:
+            return self.name
         project_name = (self.repo or '') + self.package
         if self.package.split('/')[-1] != self.name:
             project_name = project_name + '_' + self.name
@@ -65,13 +76,13 @@ class ProjectInfo:
         self.label = label
         self.build_file_path = os.path.join(
             info_dict['workspace_root'], info_dict['build_file_path'])
-        #self.ws_path = info_dict['workspace_root']
+        self.ws_path = info_dict['workspace_root']
         self.rule = Struct()
         self.rule.kind = info_dict['kind']
         self.rule.srcs = info_dict['files']['srcs']
         self.rule.hdrs = info_dict['files']['hdrs']
         self.output_files = info_dict['target']['files']
-        self.guid = _generate_uuid_from_data(str(label))
+        self.guid = _generate_uuid_from_data('project/' + str(label))
 
         if self.output_files:
             output_file = self.output_files[0]
@@ -142,6 +153,7 @@ class Configuration:
             raise StandardError("Could not find bazel or bazel.exe in path")
         self.bazel_path = self.canonical_path(bazel_path)
         self.default_cfg_dirname = 'x64_windows-fastbuild'
+        self.generate_filters = args.filters
 
         self.cc_workspace_path = self._get_bazel_info()['execution_root']
 
@@ -363,6 +375,43 @@ def _sln_project(project):
 def _sln_projects(projects):
     return '\n'.join([_sln_project(project) for project in projects])
 
+def _sln_filters(projects):
+    output = {}
+    for project in projects:
+        relpath = project.label.absolute_clean.split("/")
+        if len(relpath) > 1:
+            relpath.pop()
+
+        pt = []
+        for name in relpath:
+            pt.append(name)
+            guid = _generate_uuid_from_data('folder/'.join(pt))
+            output[guid] = ('Project("{type_guid}") = "{name}", "{name}", "{guid}" # {path}\nEndProject'.format(guid=guid, type_guid=FOLDER_TYPE_GUID, name=name, path='/'.join(pt)))
+    return '\n'.join(output.values())
+
+def _sln_nesting(projects):
+    output = {}
+    folder_output = {}
+    for project in projects:
+        relpath = project.label.absolute_clean.split("/")
+        # Strip of the project name
+        if len(relpath) > 1:
+            relpath.pop()
+        if len(relpath) > 0:
+            pt = [relpath[0]]
+            for p in relpath[1:]:
+                pt1 = pt[:]
+                pt1.append(p)
+                folder_guid = _generate_uuid_from_data('folder/'.join(pt))
+                project_guid = _generate_uuid_from_data('folder/'.join(pt1))
+                folder_output[project_guid] = ('{project_guid} = {folder_guid} # Folder {path} in {path2}'.format(folder_guid=folder_guid, project_guid=project_guid, path='/'.join(pt1), path2='/'.join(pt)))
+                pt.append(p)
+
+        folder_guid = _generate_uuid_from_data('folder/'.join(relpath))
+        project_guid = project.guid
+        output[project_guid] = ('{project_guid} = {folder_guid} # Project {path}'.format(folder_guid=folder_guid, project_guid=project_guid, path=project.label.absolute_clean))
+    return '\n\t\t'.join(folder_output.values()) + '\n\t\t' + '\n\t\t'.join(output.values())
+
 
 def _sln_cfgs(cfg):
     lines = []
@@ -471,7 +520,7 @@ def generate_projects(cfg):
 
     project_infos = []
     for target in cfg.targets:
-        info = read_info(cfg, Label(target))
+        info = read_info(cfg, Label(cfg, target))
         project_infos.append(info)
 
         project_dir = os.path.join(cfg.output_path, info.label.package)
@@ -504,10 +553,11 @@ def generate_solution(cfg, project_infos):
         template = f.read()
     sln_filename = os.path.join(cfg.output_path, cfg.solution_name+'.sln')
     content = template.format(
-        projects=_sln_projects(project_infos),
+        projects=_sln_projects(project_infos) + (('\n' + _sln_filters(project_infos)) if cfg.generate_filters else ''),
         cfgs=_sln_cfgs(cfg),
         project_cfgs=_sln_project_cfgs(cfg, project_infos),
-        guid=_generate_uuid_from_data(sln_filename))
+        guid=_generate_uuid_from_data(sln_filename),
+        nested=(_sln_nesting(project_infos)) if cfg.generate_filters else '')
     with open(sln_filename, 'w') as out:
         out.write(content)
 
@@ -523,6 +573,7 @@ def main(argv):
                         help="Solution name [default: current directory name]")
     parser.add_argument("--config", action='append',
                         help="Additional --config option to pass to bazel; may be used multiple times")
+    parser.add_argument("--filters", action='store_true', help='If specified projects will be put into filters based on directory layout.')
     args = parser.parse_args(argv[1:])
 
     cfg = Configuration(args)
