@@ -151,7 +151,9 @@ class Configuration:
         bazel_path = self._find_exe('bazel.exe') or self._find_exe('bazel')
         if not bazel_path:
             raise StandardError("Could not find bazel or bazel.exe in path")
-        self.bazel_path = self.canonical_path(bazel_path).decode('utf-8')
+        self.bazel_path = self.canonical_path(bazel_path)
+        if self.bazel_path is not str:
+            self.bazel_path = self.bazel_path.decode('utf-8')
         self.default_cfg_dirname = 'x64_windows-fastbuild'
         self.generate_filters = args.filters
 
@@ -177,7 +179,9 @@ class Configuration:
         target_list = subprocess.check_output(
             [BAZEL, 'query', query, '--output=label_kind'])
         for line in target_list.split(b'\n'):
-            line = line.decode('utf-8').strip()
+            if line is not str:
+                line = line.decode('utf-8')
+            line = line.strip()
             if not line:
                 continue
             match = re.match(Configuration._LABEL_KIND_PATTERN, line.strip())
@@ -191,7 +195,9 @@ class Configuration:
 
     def _get_bazel_info(self):
         info = subprocess.check_output([BAZEL, 'info'])
-        keyvals = (line.strip().split(': ', 1) for line in info.decode().split('\n'))
+        if info is not str:
+            info = info.decode()
+        keyvals = (line.strip().split(': ', 1) for line in info.split('\n'))
         return {kv[0]: kv[1] for kv in keyvals if len(kv) == 2}
 
     @property
